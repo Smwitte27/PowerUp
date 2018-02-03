@@ -11,26 +11,39 @@ package org.usfirst.frc.team2606.robot.subsystems;
 import edu.wpi.first.wpilibj.*;
 import edu.wpi.first.wpilibj.command.Subsystem;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
+import org.usfirst.frc.team2606.robot.Robot;
 import org.usfirst.frc.team2606.robot.RobotMap;
-import org.usfirst.frc.team2606.robot.commands.TankDrive;
+import org.usfirst.frc.team2606.robot.commands.teleop.TankDrive;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import org.usfirst.frc.team2606.robot.sensor.driver.ADIS16448_IMU;
 
 /**
  * An example subsystem.  You can replace me with your own Subsystem.
  */
 public class Drive extends Subsystem {
 
+    private SpeedController frontLeft, backLeft, frontRight, backRight;
+    private SpeedControllerGroup left, right;
     private DifferentialDrive drive;
-    private AnalogGyro gyro = RobotMap.DRIVE_GYRO;
+    private ADIS16448_IMU gyro;
     private double gyroDesiredHeading;
-    //private Encoder leftEncoder = RobotMap.LEFT_TANK;
-    //private Encoder rightEncoder = RobotMap.RIGHT_DRIVE;
+    private Ultrasonic ultrasonic;
+    //private Encoder leftEncoder;
+    //private Encoder rightEncoder;
 
     public Drive() {
         super();
-        SpeedController leftMotor = RobotMap.LEFT_TANK_DRIVE;
-        SpeedController rightMotor = RobotMap.RIGHT_TANK_DRIVE;
-        drive = new DifferentialDrive(leftMotor, rightMotor);
+        frontLeft = new VictorSP(RobotMap.FRONT_LEFT_MOTOR);
+        backLeft = new VictorSP(RobotMap.BACK_LEFT_MOTOR);
+        frontRight = new VictorSP(RobotMap.FRONT_RIGHT_MOTOR);
+        backRight = new VictorSP(RobotMap.BACK_RIGHT_MOTOR);
+        left = new SpeedControllerGroup(frontLeft, backLeft);
+        right = new SpeedControllerGroup(frontRight, backRight);
+        drive = new DifferentialDrive(left, right);
+        gyro = new ADIS16448_IMU();
+        ultrasonic = new Ultrasonic(RobotMap.ULTRASONIC_OUTPUT, RobotMap.ULTRASONIC_INPUT);
+        //leftEncoder = RobotMap.LEFT_ENCODER;
+        //rightEncoder = RobotMap.RIGHT_ENCODER;
         //leftEncoder.setDistancePerPulse((0.5 * Math.PI) / 360.0);
         //rightEncoder.setDistancePerPulse((0.5 * Math.PI) / 360.0);
     }
@@ -52,48 +65,26 @@ public class Drive extends Subsystem {
         //SmartDashboard.putNumber("Left Speed", -leftEncoder.getRate());
         //SmartDashboard.putNumber("Right Speed", rightEncoder.getRate());
         SmartDashboard.putNumber("Gyro", gyro.getAngle());
+        double angle=gyro.getAngle();
+        double angleSuper=gyro.getAngle();
+        double range=ultrasonic.getRangeInches();
+        SmartDashboard.putNumber("gyro angle:",angle);
+        SmartDashboard.putNumber("angleSuper",angleSuper);
+        SmartDashboard.putNumber("Angle X", gyro.getAngleX());
+        SmartDashboard.putNumber("Angle Y", gyro.getAngleY());
+        SmartDashboard.putNumber("Angle Z", gyro.getAngleZ());
+        SmartDashboard.putNumber("range?",range);
+        Robot.table.putNumber("yaw", gyro.getAngleZ());
     }
 
     /**
      * Tank style driving for the DriveTrain.
      *
-     * @param left
-     *            Speed in range [-1,1]
-     * @param right
-     *            Speed in range [-1,1]
+     * @param left  Speed in range [-1,1]
+     * @param right Speed in range [-1,1]
      */
     public void move(double left, double right) {
         drive.tankDrive(left, right);
-    }
-
-    /**
-     *
-     *            The ps3 style joystick to use to drive tank style.
-     */
-    public void move(Joystick leftJoystick) {
-        int direction;
-        if (leftJoystick.getRawAxis(3) < -.75) {
-            move(leftJoystick.getRawAxis(1), leftJoystick.getRawAxis(5));
-            direction = 1;
-            SmartDashboard.putNumber("Reverse", leftJoystick.getRawAxis(3));
-        } else {
-            direction = -1;
-            SmartDashboard.putNumber("straight", leftJoystick.getRawAxis(3)
-                    * direction);
-        }
-        move(leftJoystick.getRawAxis(1) * direction,
-                leftJoystick.getRawAxis(5) * direction);
-    }
-
-    public void move(Joystick joystick, int numJoystick) {
-        move(joystick.getY() * .25, joystick.getY() * .25);
-    }
-
-    /**
-     * Start Code for Calvin's Drive
-     */
-    public void calvin() {
-        
     }
 
     /**
@@ -103,6 +94,10 @@ public class Drive extends Subsystem {
         //leftEncoder.reset();
         //rightEncoder.reset();
         gyro.reset();
+    }
+
+    public double getGyroAngle() {
+        return gyro.getAngle();
     }
 
     public void setGyroDesiredHeading() {

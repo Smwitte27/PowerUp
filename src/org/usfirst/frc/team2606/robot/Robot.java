@@ -7,15 +7,19 @@
 
 package org.usfirst.frc.team2606.robot;
 
+import edu.wpi.first.wpilibj.command.Command;
 import edu.wpi.first.wpilibj.AnalogGyro;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.Ultrasonic;
 import edu.wpi.first.wpilibj.command.Scheduler;
 import edu.wpi.first.wpilibj.interfaces.Gyro;
+import edu.wpi.first.wpilibj.networktables.NetworkTable;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import org.usfirst.frc.team2606.robot.subsystems.Drive;
-import org.usfirst.frc.team2606.robot.subsystems.Drive2;
+import org.usfirst.frc.team2606.robot.commands.autonomous.*;
+import org.usfirst.frc.team2606.robot.commands.teleop.*;
+
 
 /**
  * The VM is configured to automatically run this class, and to call the
@@ -26,16 +30,17 @@ import org.usfirst.frc.team2606.robot.subsystems.Drive2;
  */
 public class Robot extends TimedRobot {
 
-	public static final Drive2 CalvinsDrive = new Drive2();
-	private SendableChooser<String> m_chooser = new SendableChooser<>();
+	private SendableChooser<Command> autoChooser = new SendableChooser<>();
+	private SendableChooser<Command> teleChooser = new SendableChooser<>();
+	private Command autonomousCommand;
+	private Command teleMode;
 
+	public static NetworkTable table;
 	public static OI oi;
 	public static Drive drive;
 	public static double scale;
 	public static double orientation;
 
-	private Gyro gyro = new AnalogGyro(1);
-	private Ultrasonic ultrasonic = new Ultrasonic(0,1);
 	/**
 	 * This function is run when the robot is first started up and should be
 	 * used for any initialization code.
@@ -44,8 +49,14 @@ public class Robot extends TimedRobot {
 	public void robotInit() {
 		oi = new OI();
 		drive = new Drive();
-		// chooser.addObject("My Auto", new MyAutoCommand());
-		SmartDashboard.putData("Auto mode", m_chooser);
+		table = NetworkTable.getTable("Dashboard");
+
+		teleChooser.addDefault("Calvin Drive", new CalvinDrive());
+		teleChooser.addObject("Tank Drive", new TankDrive());
+
+		//autoChooser.addObject("Break the Plane", new BreakPlane());
+		SmartDashboard.putData("Auto mode", autoChooser);
+		SmartDashboard.putData("Tele Mode", teleChooser);
 
 		// Initialize global constants
 		scale = 0.7;
@@ -79,18 +90,21 @@ public class Robot extends TimedRobot {
 	 */
 	@Override
 	public void autonomousInit() {
-		m_autonomousCommand = m_chooser.getSelected();
 
-		/*
-		 * String autoSelected = SmartDashboard.getString("Auto Selector",
-		 * "Default"); switch(autoSelected) { case "My Auto": autonomousCommand
-		 * = new MyAutoCommand(); break; case "Default Auto": default:
-		 * autonomousCommand = new ExampleCommand(); break; }
-		 */
+		String autoSelected = SmartDashboard.getString("Auto Selector", "Default");
+		switch(autoSelected) {
+			case "Place Cube on Switch":
+				autonomousCommand = new SwitchPlace();
+				break;
+			case "Default":
+			default:
+				autonomousCommand = new BreakPlane();
+				break;
+		}
 
 		// schedule the autonomous command (example)
-		if (m_autonomousCommand != null) {
-			m_autonomousCommand.start();
+		if (autonomousCommand != null) {
+			autonomousCommand.start();
 		}
 	}
 
@@ -98,30 +112,19 @@ public class Robot extends TimedRobot {
 	 * This function is called periodically during autonomous.
 	 */
 
-	/**
 	public void autonomousPeriodic() {
 		Scheduler.getInstance().run();
-		switch (m_autoSelected) {
-		case CustomAuto:
-			// Put custom auto code here
-			break;
-		case DefaultAuto:
-		default:
-			// Put default auto code here
-			break;
-	 }
 	}
-	 **/
+
 	@Override
 	public void teleopInit() {
-		// This makes sure that the autonomous stops running when
-		// teleop starts running. If you want the autonomous to
-		// continue until interrupted by another command, remove
-		// this line or comment it out.
-		if (m_autonomousCommand != null) {
-			m_autonomousCommand.cancel();
+		teleMode = (Command) teleChooser.getSelected();
+		teleMode.start();
+
+		if (autonomousCommand != null) {
+			autonomousCommand.cancel();
 		}
-		gyro.reset();
+		drive.reset();
 	}
 
 	/**
@@ -129,12 +132,8 @@ public class Robot extends TimedRobot {
 	 */
 	@Override
 	public void teleopPeriodic() {
-		double angle=gyro.getAngle();
-		double range=ultrasonic.getRangeInches();
-		SmartDashboard.putNumber("gyro angle:",angle);
-		SmartDashboard.putNumber("range?",range);
 		Scheduler.getInstance().run();
-
+		drive.log();
 	}
 
 	/**
